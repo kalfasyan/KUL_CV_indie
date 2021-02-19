@@ -14,12 +14,12 @@ minutes = int(duration/60)
 seconds = duration%60
 sec = fps # using sec for readability
 
-font                   = cv2.FONT_HERSHEY_SIMPLEX
-bottomLeftCornerOfText = (10,500)
-othercorner = (10,520)
-fontScale              = 1
-fontColor              = (255,255,255)
-lineType               = 2
+font = cv2.FONT_HERSHEY_SIMPLEX
+botleft = (10,500)
+lowbotleft = (10,520)
+fontScale = 1
+fontColor = (255,255,255)
+lineType = 2
 
 """ BASIC INTRO CONSOLE MESSAGES """
 print(f"\n############################################\n\nWelcome to the greatest movie of all time..\
@@ -61,21 +61,23 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     # Switch the movie between color and grayscale a few times (~4s)
     if sec < fi <= 2*sec or 3*sec < fi <= 4*sec:
         frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        frame = cv2.putText(frame, 'Grayscale', bottomLeftCornerOfText, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
+        frame = cv2.putText(frame, 'Grayscale', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
     elif 4*sec < fi <= 6*sec:
         frame = cv2.GaussianBlur(frame,(5,5),0) 
-        frame = cv2.putText(frame, 'GaussianBlur - kernel=(5,5)', bottomLeftCornerOfText, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
+        frame = cv2.putText(frame, 'GaussianBlur - kernel=(5,5)', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
     elif 6*sec < fi <= 8*sec:
         frame = cv2.GaussianBlur(frame,(13,13),0) 
-        frame = cv2.putText(frame, 'GaussianBlur - kernel=(13,13)', bottomLeftCornerOfText, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
+        frame = cv2.putText(frame, 'GaussianBlur - kernel=(13,13)', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
     elif 8*sec < fi <= 10*sec:
+        sigmaColor, sigmaSpace = 5, 5
         frame = cv2.bilateralFilter(frame, 15, 5, 5)
-        frame = cv2.putText(frame, 'Bilateral filter - sigmaColor=5, sigmaSpace=5', bottomLeftCornerOfText, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
-        frame = cv2.putText(frame, 'Notice how Bilateral filtering doesn\'t affect the tiles (and their edges)', othercorner, font, fontScale/2, (250,250,250), 1, cv2.LINE_AA) 
+        frame = cv2.putText(frame, f'Bilateral filter - sigmaColor={sigmaColor}, sigmaSpace={sigmaSpace}', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
+        frame = cv2.putText(frame, 'Notice how Bilateral filtering doesn\'t affect the tiles (and their edges)', lowbotleft, font, fontScale/2, (230,230,230), 1, cv2.LINE_AA) 
     elif 10*sec < fi <= 12*sec:
-        frame = cv2.bilateralFilter(frame, 15, 75, 75)
-        frame = cv2.putText(frame, 'Bilateral filter - sigmaColor=75, sigmaSpace=75', bottomLeftCornerOfText, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
-        frame = cv2.putText(frame, 'Even with larger sigmas. Although, you see that the texture \"noise\" of the animal figures is gone now.', othercorner, font, fontScale/2, (250,250,250), 1, cv2.LINE_AA) 
+        sigmaColor, sigmaSpace = 75, 75
+        frame = cv2.bilateralFilter(frame, 15, sigmaColor, sigmaSpace)
+        frame = cv2.putText(frame, f'Bilateral filter - sigmaColor={sigmaColor}, sigmaSpace={sigmaSpace}', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
+        frame = cv2.putText(frame, 'Even with larger sigmas. Although, you see that the texture \"noise\" of the animal figures is gone now.', lowbotleft, font, fontScale/2, (230,230,230), 1, cv2.LINE_AA) 
     else:
         pass        # frame = rotate_image(frame)
 
@@ -87,7 +89,7 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     if cv2.waitKey(25) & 0xFF == ord('q'):
       break
 
-    # if fi > 2500:
+    # if fi > 2300:
     #     break
 # cap.release()
 cv2.destroyAllWindows()
