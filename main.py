@@ -53,7 +53,7 @@ def rotate_image(image):
     (cX, cY) = (w // 2, h // 2)
 
     # rotate our image by -90 degrees around the image
-    M = cv2.getRotationMatrix2D((cX, cY), -90, 1.0)
+    M = cv2.getRotationMatrix2D((cX, cY), -180, 1.0)
     rotated = cv2.warpAffine(image, M, (w, h))
     return rotated
 
@@ -61,23 +61,34 @@ def save_frame(frame, name=''):
     print(f"Saving frame {name}")
     cv2.imwrite(name, frame)
 
-def edge_detection(image, setting='horizontal', preprocess=False, ks=17):
+def put_subtitle_small(image, msg, color):
+    return cv2.putText(image, msg, lowbotleft, font, fontScale*0.8, color, 1, cv2.LINE_AA) 
+
+def put_subtitle_large(image, msg, color):
+    return cv2.putText(image, msg, botleft, font, fontScale, color, lineType, cv2.LINE_AA) 
+
+def edge_detection(image, setting='horizontal', preprocess=False, postprocess=False, ks=17):
     assert setting in ['horizontal','vertical'], "Wrong setting given for edge detection!"
 
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     if preprocess:
-        gray = cv2.GaussianBlur(gray,(5,5),0)
+        sigmaColor, sigmaSpace = 95, 95
+        gray = cv2.bilateralFilter(gray, 35, sigmaColor, sigmaSpace)
+        # gray = cv2.GaussianBlur(gray,(31,31),0)
         gray = cv2.medianBlur(gray,3) 
 
     if setting == 'horizontal':
         edges = cv2.Sobel(gray,cv2.CV_64F,0,1,ksize=ks)
     elif setting == 'vertical':
         edges = cv2.Sobel(gray,cv2.CV_64F,1,0,ksize=ks)
-    
-    # edges = cv2.convertScaleAbs(edges, alpha=255/image.max())
-    print(edges.shape)
+
+    edges = cv2.convertScaleAbs(edges)#, alpha=255/image.max())
+
     edges = cv2.merge((edges, edges, edges)).astype(np.uint8)
-    image = cv2.addWeighted(image, 1, edges, .35, 0)
+    if postprocess:
+        edges = cv2.GaussianBlur(edges,(15,15),0)
+        edges = cv2.medianBlur(edges,3)
+    image = cv2.addWeighted(image, 1, edges, .55, 0)
     return image
 
 # We give some time for the camera to warm-up!
@@ -92,6 +103,7 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     print(frame.shape)
     # frame = rotate_image(frame)
     frame = resize_image(frame)
+
 
     # Switch the movie between color and grayscale a few times (~4s)
     if fi <= sec:
@@ -132,16 +144,28 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     #         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,(7,7))
     #         frame = cv2.morphologyEx(frame,cv2.MORPH_OPEN,kernel)
     #         frame = cv2.morphologyEx(frame, cv2.MORPH_DILATE, np.ones((7,7),np.uint8))
-    # Sobel edge detection - horizontal
-    elif 2*sec < fi <= 3*sec:
-        frame = edge_detection(frame, setting='vertical', ks=19)
-    elif 3*sec < fi <= 4*sec:
-        frame = edge_detection(frame, setting='horizontal', ks=19)
-    elif 4*sec < fi <= 5*sec:
-        frame = edge_detection(frame, setting='horizontal', ks=17)
-    # Sobel edge detection - vertical        
-    elif 5*sec < fi <= 6*sec:
-        frame = edge_detection(frame, setting='horizontal', ks=21)
+    # # Sobel edge detection - horizontal and vertical
+    # elif 2*sec < fi <= 3*sec:
+    #     frame = edge_detection(frame, setting='horizontal', ks=19, preprocess=False)
+    #     frame = put_subtitle_small(frame, 'Sobel horizontal Edges - Kernel size: 19 ', (0,255,255))
+    # elif 3*sec < fi <= 4*sec:
+    #     frame = edge_detection(frame, setting='vertical', ks=19, preprocess=False)
+    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 19 ', (0,255,255))        
+    # elif 4*sec < fi <= 5*sec:
+    #     frame = edge_detection(frame, setting='vertical', ks=17, preprocess=False)
+    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 17 ', (0,255,255))        
+    # elif 5*sec < fi <= 6*sec:
+    #     frame = edge_detection(frame, setting='vertical', ks=21, preprocess=False)
+    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 21 ', (0,255,255))        
+    elif 2*sec < fi <= 20*sec:
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        blurred = cv2.medianBlur(gray, 3)
+        circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, frame.shape[0]/64, param1=150, param2=20, minRadius=15, maxRadius=50)
+        if circles is not None:
+            circles = np.uint16(np.around(circles))
+            for i in circles[0, :]:
+                cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
+                cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
     else:
         pass        # frame = rotate_image(frame)
 
