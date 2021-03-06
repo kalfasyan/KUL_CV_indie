@@ -91,6 +91,15 @@ def edge_detection(image, setting='horizontal', preprocess=False, postprocess=Fa
     image = cv2.addWeighted(image, 1, edges, .55, 0)
     return image
 
+def cicle_detection(gray, dp, minDist, param1, param2, minRadius, maxRadius):
+    circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, dp, minDist=minDist, param1=param1, param2=param2, minRadius=minRadius, maxRadius=maxRadius)
+    # circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, .5, minDist=20, param1=120, param2=25, minRadius=4, maxRadius=150)    # 
+    if circles is not None:
+        circles = np.uint16(np.around(circles))
+        for i in circles[0, :]:
+            cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
+            cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)    
+
 # We give some time for the camera to warm-up!
 import time
 time.sleep(1)
@@ -157,15 +166,38 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     # elif 5*sec < fi <= 6*sec:
     #     frame = edge_detection(frame, setting='vertical', ks=21, preprocess=False)
     #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 21 ', (0,255,255))        
+    # Circle Detection - Hough
+    # dp: resolution of the accumulator array. 
+    #   Small => only perfect circles are found. 
+    #   Large => noisy, detects non-circles 
+    # minDist: Minimum distance between centers (x,y) of detected circles
+    #   Small => multiple circles in one neighborhood. 
+    #   Large => some circles are missed
+    # param1: Similar to threshold1 that is given to Canny edge detector.
+    # param2: Accumulator threshold for cv2.HOUGH_GRADIENT. 
+    #   Small => more circles are detected (also false positives)
+    #   Large => fewer circles are returned
+    # minRadius: Minimum size of the circle radius (pixels)
+    # maxRadius: Maximum size of the circle radius (pixels)
     elif 2*sec < fi <= 20*sec:
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.medianBlur(gray, 3)
-        circles = cv2.HoughCircles(blurred, cv2.HOUGH_GRADIENT, 1, frame.shape[0]/64, param1=150, param2=20, minRadius=15, maxRadius=50)
-        if circles is not None:
-            circles = np.uint16(np.around(circles))
-            for i in circles[0, :]:
-                cv2.circle(frame, (i[0], i[1]), i[2], (0, 255, 0), 2)
-                cv2.circle(frame, (i[0], i[1]), 2, (0, 0, 255), 3)
+        gray = cv2.GaussianBlur(gray,(7,7),0) 
+        gray = cv2.medianBlur(gray, 3)
+        if 2*sec < fi <= 3*sec:
+            cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=150)
+        elif 3*sec < fi <= 4*sec:
+            cicle_detection(gray, dp=1.5, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=150)
+        elif 4*sec < fi <= 5*sec:
+            cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=18, minRadius=4, maxRadius=150)
+        elif 5*sec < fi <= 6*sec:
+            cicle_detection(gray, dp=.2, minDist=150, param1=120, param2=18, minRadius=4, maxRadius=50)
+        elif 6*sec < fi <= 10*sec:
+            cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=50)
+
+
+    # circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, .5, minDist=20, param1=120, param2=25, minRadius=4, maxRadius=150)  
+
+
     else:
         pass        # frame = rotate_image(frame)
 
