@@ -6,7 +6,7 @@ def nothing(x):
     pass
 
 # Load in image
-image = cv2.imread('./data/frame_0.jpg')
+image = cv2.imread('./data/frame_160.jpg')
 
 # Create a window
 cv2.namedWindow('image')

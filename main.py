@@ -5,6 +5,9 @@ import glob
 import os
 from tqdm import tqdm
 import argparse
+import imutils
+from imutils import contours, perspective
+from collections import deque
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--movie", help="The movie file you want to record.")
@@ -19,6 +22,10 @@ duration = frame_count/fps
 minutes = int(duration/60)
 seconds = duration%60
 sec = fps # using sec for readability
+# template = cv2.imread("template.jpg")
+# template = cv2.cvtColor(template, cv2.COLOR_BGR2GRAY)
+# h_template, w_template = template.shape[:2]
+d = deque(maxlen=20)
 
 """ SETTINGS FOR SUBTITLES """
 font = cv2.FONT_HERSHEY_SIMPLEX
@@ -105,11 +112,12 @@ import time
 time.sleep(1)
 background=0
 ks = 3
+box_drawn = False
 
 """ MOVIE RECORDING MAIN LOOP """
 for fi in tqdm(range(movielen), desc="Recording the movie.."):
     ret, frame = cap.read()
-    print(frame.shape)
+    # print(frame.shape)
     # frame = rotate_image(frame)
     frame = resize_image(frame)
 
@@ -128,8 +136,8 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     # elif 6*sec < fi <= 8*sec:
     #     frame = cv2.GaussianBlur(frame,(13,13),0) 
     #     frame = cv2.putText(frame, 'GaussianBlur - kernel=(13,13)', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
-    # # Blurring with Bilateral filter
-    # elif 8*sec < fi <= 10*sec:
+    # # Blurring with Bilateral filter`
+    # elif 8*sec < fi <= 10*sec:`
     #     sigmaColor, sigmaSpace = 5, 5
     #     frame = cv2.bilateralFilter(frame, 15, 25, 25)
     #     frame = cv2.putText(frame, f'Bilateral filter - sigmaColor={sigmaColor}, sigmaSpace={sigmaSpace}', botleft, font, fontScale, fontColor, lineType, cv2.LINE_AA) 
@@ -159,13 +167,13 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     #     frame = put_subtitle_small(frame, 'Sobel horizontal Edges - Kernel size: 19 ', (0,255,255))
     # elif 3*sec < fi <= 4*sec:
     #     frame = edge_detection(frame, setting='vertical', ks=19, preprocess=False)
-    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 19 ', (0,255,255))        
+    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 19 ', (0,255,255))
     # elif 4*sec < fi <= 5*sec:
     #     frame = edge_detection(frame, setting='vertical', ks=17, preprocess=False)
-    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 17 ', (0,255,255))        
+    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 17 ', (0,255,255))
     # elif 5*sec < fi <= 6*sec:
     #     frame = edge_detection(frame, setting='vertical', ks=21, preprocess=False)
-    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 21 ', (0,255,255))        
+    #     frame = put_subtitle_small(frame, 'Sobel vertical Edges - Kernel size: 21 ', (0,255,255))
     # Circle Detection - Hough
     # dp: resolution of the accumulator array. 
     #   Small => only perfect circles are found. 
@@ -179,23 +187,75 @@ for fi in tqdm(range(movielen), desc="Recording the movie.."):
     #   Large => fewer circles are returned
     # minRadius: Minimum size of the circle radius (pixels)
     # maxRadius: Maximum size of the circle radius (pixels)
-    elif 2*sec < fi <= 20*sec:
-        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        gray = cv2.GaussianBlur(gray,(7,7),0) 
-        gray = cv2.medianBlur(gray, 3)
-        if 2*sec < fi <= 3*sec:
-            cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=150)
-        elif 3*sec < fi <= 4*sec:
-            cicle_detection(gray, dp=1.5, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=150)
-        elif 4*sec < fi <= 5*sec:
-            cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=18, minRadius=4, maxRadius=150)
-        elif 5*sec < fi <= 6*sec:
-            cicle_detection(gray, dp=.2, minDist=150, param1=120, param2=18, minRadius=4, maxRadius=50)
-        elif 6*sec < fi <= 10*sec:
-            cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=50)
+    # elif 2*sec < fi <= 20*sec:
+    #     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    #     gray = cv2.GaussianBlur(gray,(7,7),0) 
+    #     gray = cv2.medianBlur(gray, 3)
+    #     if 2*sec < fi <= 3*sec:
+    #         cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=150)
+    #     elif 3*sec < fi <= 4*sec:
+    #         cicle_detection(gray, dp=1.5, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=150)
+    #     elif 4*sec < fi <= 5*sec:
+    #         cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=18, minRadius=4, maxRadius=150)
+    #     elif 5*sec < fi <= 6*sec:
+    #         cicle_detection(gray, dp=.2, minDist=150, param1=120, param2=18, minRadius=4, maxRadius=50)
+    #     elif 6*sec < fi <= 10*sec:
+    #         cicle_detection(gray, dp=.2, minDist=40, param1=120, param2=28, minRadius=4, maxRadius=50)
+    # OBJECT DETECTION
+    elif 4*sec < fi <= 20*sec:
+        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
 
+        mask = cv2.inRange(hsv, (23,43,73), (46,161,228))
+        imask = mask > 0
+        ballcolor = np.zeros_like(frame, np.uint8)
+        ballcolor[imask] = frame[imask]
 
-    # circles = cv2.HoughCircles(gray, cv2.HOUGH_GRADIENT, .5, minDist=20, param1=120, param2=25, minRadius=4, maxRadius=150)  
+        sub = ballcolor.astype(np.uint8)
+        sub = cv2.cvtColor(sub, cv2.COLOR_BGR2GRAY)
+        sub = cv2.GaussianBlur(sub, (7, 7), 0)
+
+        edged = cv2.Canny(sub, 50, 100)
+        edged = cv2.dilate(edged, None, iterations=1)
+        edged = cv2.erode(edged, None, iterations=1)
+        cnts = cv2.findContours(edged.copy(), cv2.RETR_EXTERNAL,
+            cv2.CHAIN_APPROX_SIMPLE)
+        cnts = imutils.grab_contours(cnts)
+        (cnts, _) = contours.sort_contours(cnts)
+        pixelsPerMetric = None
+
+        if not box_drawn:
+            for c in cnts:
+                if cv2.contourArea(c) < 25000:
+                    continue
+                else:
+                    box = cv2.minAreaRect(c)
+                    box = cv2.cv.BoxPoints(box) if imutils.is_cv2() else cv2.boxPoints(box)
+                    box = np.array(box, dtype="int")
+                    box = perspective.order_points(box)
+                    cv2.drawContours(frame, [box.astype("int")], -1, (0, 255, 0), 2)
+                    box_drawn = True
+                    fixed_box = box
+                    x, y, w, h = cv2.boundingRect(c)
+                    roi = frame[y:y+h, x:x+w]
+                    break
+
+        elif box_drawn and 4*sec < fi <= 6*sec:
+            print(roi.shape)
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            
+            cv2.drawContours(frame, [fixed_box.astype("int")], -1, (0, 255, 0), 2)
+
+        elif box_drawn and 6*sec < fi <=20*sec:
+            frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            template = cv2.cvtColor(roi, cv2.COLOR_BGR2GRAY)
+            print(template.shape)
+
+            w, h = template.shape[::-1]
+
+            res = cv2.matchTemplate(frame,template,cv2.TM_CCOEFF_NORMED)
+            frame = cv2.resize(res, frame.shape, interpolation = cv2.INTER_AREA)
+
+            print(res.shape)
 
 
     else:
